@@ -14,14 +14,21 @@ class NyaaReq():
             self.category = types['category']
             self.criteria = types['criteria']
 
-    def get(self, query, criteria=0, category='0_0', autoparse=True):
+    def get(self, query, criteria='0', category='0_0', autoparse=True):
         """
         Gets the table of torrents from query site. Returns an lxml Element object if autoparse is False, returns an array containing dictionaries that tells the info of a torrent if autoparse is True. 
         """
+        if type(category) is list:
+            content = list()
+            for i in category:
+                content.append(NyaaReq.get(self, query, criteria, i, autoparse))
+            return content
+
         searchHTML = requests.get(
             self.siteQuery.format(criteria=str(criteria),
-                                  category=category,
+                                  category=str(category),
                                   query=query))
+        
         if (status := searchHTML.status_code) >= 400:
             print(f'Error, status code {status}')
             return None
@@ -84,7 +91,7 @@ if __name__ == "__main__":
                         default="0")
     parser.add_argument("--category",
                         help="Category to search in",
-                        nargs='?',
+                        nargs='*',
                         default="0_0")
     args = parser.parse_args()
     nyaa = NyaaReq()
