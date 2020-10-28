@@ -8,7 +8,8 @@ class NyaaReq():
     def __init__(self):
         self.site = 'https://nyaa.si'
         self.siteQuery = self.site + '/?f={criteria}&c={category}&q={query}'
-        with open(path.join(path.dirname(__file__), "types.json"), "rt") as types:
+        with open(path.join(path.dirname(__file__), "types.json"),
+                  "rt") as types:
             types = json.load(types)
             self.category = types['category']
             self.criteria = types['criteria']
@@ -19,7 +20,7 @@ class NyaaReq():
         """
         searchHTML = requests.get(
             self.siteQuery.format(criteria=str(criteria),
-                                  category=str(category),
+                                  category=category,
                                   query=query))
         if (status := searchHTML.status_code) >= 400:
             print(f'Error, status code {status}')
@@ -29,7 +30,7 @@ class NyaaReq():
         tableData = list()
         for row in tableRow:
             tableData.append(row.findall('td'))
-        return tableData if autoparse==False else self.parse(tableData)
+        return tableData if autoparse == False else self.parse(tableData)
 
     def parse(self, table):
         """
@@ -48,16 +49,16 @@ class NyaaReq():
             leech = tableData[6].text
             downloads = tableData[7].text
             content.append({
-                    'name':name,
-                    'url':url,
-                    'category':self.translate(category),
-                    'torrent':torrent,
-                    'magnet':magnet,
-                    'size': size,
-                    'date':date,
-                    'seed':seed,
-                    'leech':leech,
-                    'downloads':downloads
+                'name': name,
+                'url': url,
+                'category': self.translate(category),
+                'torrent': torrent,
+                'magnet': magnet,
+                'size': size,
+                'date': date,
+                'seed': seed,
+                'leech': leech,
+                'downloads': downloads
             })
         return content
 
@@ -73,11 +74,18 @@ class NyaaReq():
             except:
                 return None
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("query", help="String to search for in nyaa.si")
-    parser.add_argument("--criteria", help="Criteria to search for", nargs='?', default="0")
-    parser.add_argument("--category", help="Category to search in", nargs='?', default="0_0")
+    parser.add_argument("--criteria",
+                        help="Criteria to search for",
+                        nargs='?',
+                        default="0")
+    parser.add_argument("--category",
+                        help="Category to search in",
+                        nargs='?',
+                        default="0_0")
     args = parser.parse_args()
     nyaa = NyaaReq()
     print(nyaa.get(args.query, args.criteria, args.category), sort_dicts=False)
