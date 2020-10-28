@@ -7,41 +7,51 @@ import requests, json, argparse
 class NyaaReq():
     def __init__(self):
         self.site = 'https://nyaa.si'
-        self.siteQuery = self.site + '/?f={criteria}&c={category}&q={query}'
+        self.siteQuery = self.site + '/?f={criteria}&c={category}&q={query}&p={page}'
         with open(path.join(path.dirname(__file__), "types.json"),
                   "rt") as types:
             types = json.load(types)
             self.category = types['category']
             self.criteria = types['criteria']
 
-    def get(self, query, criteria='0', category='0_0', autoparse=True):
+    def get(self,
+            query,
+            criteria='0',
+            category='0_0',
+            maxPage=10,
+            autoparse=True):
         """
-        Gets the table of torrents from query site. Returns an lxml Element object if autoparse is False, returns an array containing dictionaries that tells the info of a torrent if autoparse is True. 
+        Gets the table of torrents from query site. Returns an lxml Element object with a <td> tag if autoparse is False, returns an array containing dictionaries that tells the info of a torrent if autoparse is True. 
         """
         if type(category) is list:
             content = list()
             for i in category:
-                content.append(NyaaReq.get(self, query, criteria, i, autoparse))
+                content.append(
+                    NyaaReq.get(self, query, criteria, i, maxPage, autoparse))
             return content
-
-        searchHTML = requests.get(
-            self.siteQuery.format(criteria=str(criteria),
-                                  category=str(category),
-                                  query=query))
-        
-        if (status := searchHTML.status_code) >= 400:
-            print(f'Error, status code {status}')
-            return None
-        nyaaPage = html.fromstring(searchHTML.content)
-        tableRow = nyaaPage.xpath('//tbody/tr')
-        tableData = list()
-        for row in tableRow:
-            tableData.append(row.findall('td'))
+        count = 0
+        while True:
+            count += 1
+            searchHTML = requests.get(
+                self.siteQuery.format(criteria=str(criteria),
+                                      category=str(category),
+                                      query=query,
+                                      page=count))
+            if (status := searchHTML.status_code) >= 400:
+                print(f'Error, status code {status}')
+                return None
+            nyaaPage = html.fromstring(searchHTML.content)
+            tableRow = nyaaPage.xpath('//tbody/tr')
+            if not tableRow or count >= int(maxPage):
+                break
+            tableData = list()
+            for row in tableRow:
+                tableData.append(row.findall('td'))
         return tableData if autoparse == False else self.parse(tableData)
 
     def parse(self, table):
         """
-        Parses the table rows (<tr> elements) to get the contents of it. Returns a list containing dictionaries, where a single dictionary contains information for a single torrent. 
+        Parses the table data (<td> elements) to get the contents of it. Returns a list containing dictionaries, where a single dictionary contains information for a single torrent. 
         """
         content = list()
         for tableData in table:
@@ -93,6 +103,13 @@ if __name__ == "__main__":
                         help="Category to search in",
                         nargs='*',
                         default="0_0")
+    parser.add_argument(
+        "--max",
+        help=
+        "How many pages the script will look to until stopping, default 10",
+        nargs='?',
+        default='10')
     args = parser.parse_args()
     nyaa = NyaaReq()
-    print(nyaa.get(args.query, args.criteria, args.category), sort_dicts=False)
+    result = nyaa.get(args.query, args.criteria, args.category, args.max)
+    print(result)
