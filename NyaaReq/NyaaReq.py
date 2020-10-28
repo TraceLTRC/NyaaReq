@@ -21,7 +21,10 @@ class NyaaReq():
             maxPage=10,
             autoparse=True):
         """
-        Gets the table of torrents from query site. Returns an lxml Element object with a <td> tag if autoparse is False, returns an array containing dictionaries that tells the info of a torrent if autoparse is True. 
+        Gets the table of torrents from query site. 
+        Returns an lxml Element object with a <td> tag if autoparse is False. 
+        Returns an array containing dictionaries that tells the info 
+        of a torrent if autoparse is True. 
         """
         if type(category) is list:
             content = list()
@@ -51,7 +54,9 @@ class NyaaReq():
 
     def parse(self, table):
         """
-        Parses the table data (<td> elements) to get the contents of it. Returns a list containing dictionaries, where a single dictionary contains information for a single torrent. 
+        Parses the table data (<td> elements) to get the contents of it. 
+        Returns a list containing dictionaries, 
+        where a single dictionary contains information for a single torrent. 
         """
         content = list()
         for tableData in table:
