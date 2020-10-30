@@ -1,7 +1,7 @@
 from lxml import html
-from pprint import pprint as print
 from os import path
-import requests, json, argparse
+import concurrent.futures as conc
+import requests, json, argparse, time
 
 
 class NyaaReq():
@@ -18,48 +18,92 @@ class NyaaReq():
             query,
             criteria='0',
             category='0_0',
-            maxPage=10,
-            autoparse=True):
+            multithread=True,
+            verbose=True):
+        verboseprint = print if verbose else lambda *a, **k: None
+        if type(category) is list:
+            content = list()
+            for i in category:
+                for data in self.get(query=query, 
+                                        criteria=criteria, 
+                                        category=i,  
+                                        multithread=multithread, 
+                                        verbose=verbose):
+                    content.append(data)
+            return content
+        content = list()
+        future_to_url = list()
+        firstNyaaPage = requests.get(
+            self.siteQuery.format(query=query,
+                                page=1,
+                                criteria=criteria,
+                                category=category))
+        if (err := firstNyaaPage.status_code) >= 400:
+            raise Exception(f"Error! Status code {err} raised!")
+        firstNyaaPage = html.fromstring(firstNyaaPage.content)
+        totalPage = firstNyaaPage.xpath(
+            '//ul[@class="pagination"]/li[last()-1]/a')[0].text
+        verboseprint(f"Total page is {totalPage}")
+        if multithread:
+            with conc.ThreadPoolExecutor(5) as executor:
+                for page in range(1, int(totalPage) + 1):
+                    verboseprint(f"Parsing page {page}")
+                    future_to_url.append(
+                        executor.submit(self.get_page,
+                                        query=query,
+                                        criteria=criteria,
+                                        category=category,
+                                        page=page))
+                for future in conc.as_completed(future_to_url):
+                    verboseprint(f"Returning content for a page...")
+                    for data in future.result():
+                        content.append(data)
+                return content
+        else:
+            for page in range(1, int(totalPage)+1):
+                verboseprint(f"Parsing page {page}")
+                for data in self.get_page(
+                               query=query,
+                               criteria=criteria,
+                               category=category,
+                               page=page):
+                    content.append(data)
+            return content
+
+    def get_page(self,
+                 query,
+                 criteria='0',
+                 category='0_0',
+                 page=1,
+                 verbose=True):
         """
         Gets the table of torrents from query site. 
         Returns an lxml Element object with a <td> tag if autoparse is False. 
         Returns an array containing dictionaries that tells the info 
         of a torrent if autoparse is True. 
         """
-        if type(category) is list:
-            content = list()
-            for i in category:
-                content.append(
-                    NyaaReq.get(self, query, criteria, i, maxPage, autoparse))
-            return content
-        count = 0
-        while True:
-            count += 1
-            searchHTML = requests.get(
-                self.siteQuery.format(criteria=str(criteria),
-                                      category=str(category),
-                                      query=query,
-                                      page=count))
-            if (status := searchHTML.status_code) >= 400:
-                print(f'Error, status code {status}')
-                return None
-            nyaaPage = html.fromstring(searchHTML.content)
-            tableRow = nyaaPage.xpath('//tbody/tr')
-            if not tableRow or count >= int(maxPage):
-                break
-            tableData = list()
-            for row in tableRow:
-                tableData.append(row.findall('td'))
-        return tableData if autoparse == False else self.parse(tableData)
+        nyaaPage = requests.get(
+            self.siteQuery.format(query=query,
+                                  page=page,
+                                  criteria=criteria,
+                                  category=category))
+        if (err := nyaaPage.status_code) >= 400:
+            raise Exception(f"Error! Status code {err} raised!")
+        nyaaPage = html.fromstring(nyaaPage.content)
+        tableRow = nyaaPage.xpath('//tbody/tr')
+        tableData = list()
+        for tr in tableRow:
+            tableData.append(tr.findall("td"))
+        return self.parse(tableData)
 
-    def parse(self, table):
+    def parse(self, tableRow):
         """
         Parses the table data (<td> elements) to get the contents of it. 
         Returns a list containing dictionaries, 
         where a single dictionary contains information for a single torrent. 
         """
         content = list()
-        for tableData in table:
+        for tableData in tableRow:
             category = tableData[0].find("a").attrib['href'][4:]
             name = tableData[1].find("a").attrib['title']
             url = self.site + tableData[1].find("a").attrib['href']
@@ -100,21 +144,27 @@ class NyaaReq():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("query", help="String to search for in nyaa.si")
-    parser.add_argument("--criteria",
+    parser.add_argument("-cr", "--criteria",
                         help="Criteria to search for",
                         nargs='?',
                         default="0")
-    parser.add_argument("--category",
+    parser.add_argument("-ct","--category",
                         help="Category to search in",
                         nargs='*',
                         default="0_0")
-    parser.add_argument(
-        "--max",
-        help=
-        "How many pages the script will look to until stopping, default 10",
-        nargs='?',
-        default='10')
+    parser.add_argument("--multi",
+                        help="Enables multithreading for faster parsing",
+                        action="store_true")
+    parser.add_argument("--verbose",
+                        help="Enables verbose printing",
+                        action='store_true')
     args = parser.parse_args()
     nyaa = NyaaReq()
-    result = nyaa.get(args.query, args.criteria, args.category, args.max)
-    print(result)
+    st = time.time()
+    result = nyaa.get(args.query, args.criteria, args.category, args.multi)
+    
+    for torrent in result:
+        print("\n")
+        for key, data in torrent.items():
+            print(f"{key} : {data}")
+    print("total time: %s"%(time.time() - st))
