@@ -24,20 +24,20 @@ class NyaaReq():
         if type(category) is list:
             content = list()
             for i in category:
-                for data in self.get(query=query, 
-                                        criteria=criteria, 
-                                        category=i,  
-                                        multithread=multithread, 
-                                        verbose=verbose):
+                for data in self.get(query=query,
+                                     criteria=criteria,
+                                     category=i,
+                                     multithread=multithread,
+                                     verbose=verbose):
                     content.append(data)
             return content
         content = list()
         future_to_url = list()
         firstNyaaPage = requests.get(
             self.siteQuery.format(query=query,
-                                page=1,
-                                criteria=criteria,
-                                category=category))
+                                  page=1,
+                                  criteria=criteria,
+                                  category=category))
         if (err := firstNyaaPage.status_code) >= 400:
             raise Exception(f"Error! Status code {err} raised!")
         firstNyaaPage = html.fromstring(firstNyaaPage.content)
@@ -60,13 +60,12 @@ class NyaaReq():
                         content.append(data)
                 return content
         else:
-            for page in range(1, int(totalPage)+1):
+            for page in range(1, int(totalPage) + 1):
                 verboseprint(f"Parsing page {page}")
-                for data in self.get_page(
-                               query=query,
-                               criteria=criteria,
-                               category=category,
-                               page=page):
+                for data in self.get_page(query=query,
+                                          criteria=criteria,
+                                          category=category,
+                                          page=page):
                     content.append(data)
             return content
 
@@ -144,11 +143,13 @@ class NyaaReq():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("query", help="String to search for in nyaa.si")
-    parser.add_argument("-cr", "--criteria",
+    parser.add_argument("-cr",
+                        "--criteria",
                         help="Criteria to search for",
                         nargs='?',
                         default="0")
-    parser.add_argument("-ct","--category",
+    parser.add_argument("-ct",
+                        "--category",
                         help="Category to search in",
                         nargs='*',
                         default="0_0")
@@ -160,11 +161,9 @@ if __name__ == "__main__":
                         action='store_true')
     args = parser.parse_args()
     nyaa = NyaaReq()
-    st = time.time()
     result = nyaa.get(args.query, args.criteria, args.category, args.multi)
-    
+
     for torrent in result:
         print("\n")
         for key, data in torrent.items():
             print(f"{key} : {data}")
-    print("total time: %s"%(time.time() - st))
