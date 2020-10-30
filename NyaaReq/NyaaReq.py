@@ -104,7 +104,7 @@ class NyaaReq():
         content = list()
         for tableData in tableRow:
             category = tableData[0].find("a").attrib['href'][4:]
-            name = tableData[1].find("a").attrib['title']
+            name = tableData[1].find('a[last()]').attrib['title']
             url = self.site + tableData[1].find("a").attrib['href']
             torrent = self.site + tableData[2].findall("a")[0].attrib['href']
             magnet = tableData[2].findall("a")[1].attrib['href']
