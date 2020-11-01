@@ -5,7 +5,7 @@ import requests, json, argparse, time
 
 
 class NyaaReq():
-    def __init__(self):
+    def __init__(self, verbose=False):
         self.site = 'https://nyaa.si'
         self.siteQuery = self.site + '/?f={criteria}&c={category}&q={query}&p={page}'
         with open(path.join(path.dirname(__file__), "types.json"),
@@ -13,22 +13,16 @@ class NyaaReq():
             types = json.load(types)
             self.category = types['category']
             self.criteria = types['criteria']
+        self.verboseprint = print if verbose else lambda *a, **k: None
 
-    def get(self,
-            query,
-            criteria='0',
-            category='0_0',
-            multithread=True,
-            verbose=True):
-        verboseprint = print if verbose else lambda *a, **k: None
+    def get(self, query, criteria='0', category='0_0', multithread=True):
         if type(category) is list:
             content = list()
             for i in category:
                 for data in self.get(query=query,
                                      criteria=criteria,
                                      category=i,
-                                     multithread=multithread,
-                                     verbose=verbose):
+                                     multithread=multithread):
                     content.append(data)
             return content
         content = list()
@@ -43,11 +37,11 @@ class NyaaReq():
         firstNyaaPage = html.fromstring(firstNyaaPage.content)
         totalPage = firstNyaaPage.xpath(
             '//ul[@class="pagination"]/li[last()-1]/a')[0].text
-        verboseprint(f"Total page is {totalPage}")
+        self.verboseprint(f"Total page is {totalPage}")
         if multithread:
             with conc.ThreadPoolExecutor(5) as executor:
                 for page in range(1, int(totalPage) + 1):
-                    verboseprint(f"Parsing page {page}")
+                    self.verboseprint(f"Parsing page {page}")
                     future_to_url.append(
                         executor.submit(self.get_page,
                                         query=query,
@@ -55,13 +49,13 @@ class NyaaReq():
                                         category=category,
                                         page=page))
                 for future in conc.as_completed(future_to_url):
-                    verboseprint(f"Returning content for a page...")
+                    self.verboseprint(f"Returning content for a page...")
                     for data in future.result():
                         content.append(data)
                 return content
         else:
             for page in range(1, int(totalPage) + 1):
-                verboseprint(f"Parsing page {page}")
+                self.verboseprint(f"Parsing page {page}")
                 for data in self.get_page(query=query,
                                           criteria=criteria,
                                           category=category,
@@ -141,7 +135,8 @@ class NyaaReq():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog='NyaaRequest', 
+                                     usage='NyaaReq.py query [--flags]')
     parser.add_argument("query", help="String to search for in nyaa.si")
     parser.add_argument("-cr",
                         "--criteria",
@@ -150,7 +145,7 @@ if __name__ == "__main__":
                         default="0")
     parser.add_argument("-ct",
                         "--category",
-                        help="Category to search in",
+                        help="Categories to search in, can be multiple.",
                         nargs='*',
                         default="0_0")
     parser.add_argument("--multi",
@@ -160,7 +155,7 @@ if __name__ == "__main__":
                         help="Enables verbose printing",
                         action='store_true')
     args = parser.parse_args()
-    nyaa = NyaaReq()
+    nyaa = NyaaReq(args.verbose)
     result = nyaa.get(args.query, args.criteria, args.category, args.multi)
 
     for torrent in result:
