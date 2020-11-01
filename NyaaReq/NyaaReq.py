@@ -35,8 +35,11 @@ class NyaaReq():
         if (err := firstNyaaPage.status_code) >= 400:
             raise Exception(f"Error! Status code {err} raised!")
         firstNyaaPage = html.fromstring(firstNyaaPage.content)
-        totalPage = firstNyaaPage.xpath(
-            '//ul[@class="pagination"]/li[last()-1]/a')[0].text
+        try:
+            totalPage = firstNyaaPage.xpath(
+                '//ul[@class="pagination"]/li[last()-1]/a')[0].text
+        except IndexError:
+            totalPage = 1
         self.verboseprint(f"Total page is {totalPage}")
         if multithread:
             with conc.ThreadPoolExecutor(5) as executor:
